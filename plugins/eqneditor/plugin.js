@@ -63,8 +63,10 @@
 
 		init: function ( editor ) {
 			var host = editor.config.eqneditor_server || DEFAULT_HOST;
-			var scriptUrl = editor.config.eqneditor_script_url || ( 'https://' + host + '/eqneditor.api.min.js' );
-			var cssUrl = editor.config.eqneditor_css_url || ( 'https://' + host + '/eqneditor.css' );
+			// A bare host means https; a full origin (e.g. http://localhost:8010 for local development) is used as it is.
+			var origin = /^https?:\/\//.test( host ) ? host.replace( /\/+$/, '' ) : 'https://' + host;
+			var scriptUrl = editor.config.eqneditor_script_url || ( origin + '/eqneditor.api.min.js' );
+			var cssUrl = editor.config.eqneditor_css_url || ( origin + '/eqneditor.css' );
 
 			loadScriptOnce( scriptUrl ).catch( function ( err ) { console.error( err ); } );
 			loadCssOnce( cssUrl );
