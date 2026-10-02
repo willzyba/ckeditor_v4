@@ -22,11 +22,11 @@
 		'mtable', 'mtr', 'mtd', 'mlabeledtr', 'maction'
 	];
 
-	// Fixes for gaps in the shared eqneditor.css (loaded separately, in plugin.js) that this
+	// Fixes for gaps in the shared fxeditor.css (loaded separately, in plugin.js) that this
 	// dialog needs but can't assume it will get: editor.codecogs.com, the old default host
 	// and still configurable, serves an older stylesheet that predates the CCEqnEditor/CCMathViewHost/
 	// CCLatexInput class names entirely (only a local dev mirror does not have this gap).
-	// Injected once, since it would otherwise race eqneditor.css over which rule wins.
+	// Injected once, since it would otherwise race fxeditor.css over which rule wins.
 	// The API's own injected @font-face for "Latin Modern Math" only carries
 	// local("Latin Modern Math") - no url() fallback - so it silently falls back to a generic
 	// serif unless that exact font happens to be installed. A later @font-face for the same
@@ -222,7 +222,7 @@
 
 	// EqEditor.init() switches the converter every TextArea/MathView/Toolbar construction takes
 	// on to fxTeX Pro - skip it and they keep the placeholder converter for their whole
-	// lifetime, even once eqneditor.api.min.js itself has loaded. Called once per page; an
+	// lifetime, even once fxeditor.api.min.js itself has loaded. Called once per page; an
 	// empty licence is the normal, expected state until a real one is configured.
 	var initPromise = null;
 
@@ -258,7 +258,7 @@
 		var design = editor.config.eqneditor_design || {};
 		var cssUrl = editor.config.eqneditor_css_url ||
 			( ( /^https?:\/\//.test( editor.config.eqneditor_server || '' ) ? editor.config.eqneditor_server.replace( /\/+$/, '' )
-				: 'https://' + ( editor.config.eqneditor_server || 'fxtex.codecogs.com' ) ) + '/eqneditor.css' );
+				: 'https://' + ( editor.config.eqneditor_server || 'fxtex.codecogs.com' ) ) + '/fxeditor.css' );
 
 		var eqOutput = null, eqTextArea = null, eqMathView = null, eqToolbar = null;
 		var mounted = false;
