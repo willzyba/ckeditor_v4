@@ -5,7 +5,7 @@
  same dialog (dialogs/eqneditor.js), which embeds the shared EqEditor UI every adapter in
  eqneditor-v5-plugins uses. This file's only job is wiring CKEditor's plugin API to that dialog
  and making sure the EqEditor script/CSS are on the page before it needs them - script/CSS
- hosts default to fxeditor.codecogs.com and can be overridden per CKEDITOR.replace() call with
+ hosts default to fxtex.codecogs.com and can be overridden per CKEDITOR.replace() call with
  config.eqneditor_server (host only) or config.eqneditor_script_url/eqneditor_css_url (full
  URL - needed for a plain-HTTP local dev server, since the host-only default assumes https).
 
@@ -14,7 +14,7 @@
 ( function () {
 	'use strict';
 
-	var DEFAULT_HOST = 'fxeditor.codecogs.com';
+	var DEFAULT_HOST = 'fxtex.codecogs.com';
 
 	// One script/CSS load per URL no matter how many editor instances CKEDITOR.replace() is
 	// called for on the page - CKEDITOR.scriptLoader.load() already dedupes network requests
