@@ -3,7 +3,7 @@
 
  Registers a toolbar button, a context-menu entry, and a double-click handler that all open the
  same dialog (dialogs/eqneditor.js), which embeds the shared EqEditor UI every adapter in
- eqneditor-v5-plugins uses. This file's only job is wiring CKEditor's plugin API to that dialog
+ fxPlugins uses. This file's only job is wiring CKEditor's plugin API to that dialog
  and making sure the EqEditor script/CSS are on the page before it needs them - script/CSS
  hosts default to fxtex.codecogs.com and can be overridden per CKEDITOR.replace() call with
  config.eqneditor_server (host only) or config.eqneditor_script_url/eqneditor_css_url (full

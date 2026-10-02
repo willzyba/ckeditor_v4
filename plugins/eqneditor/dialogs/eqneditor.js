@@ -1,7 +1,7 @@
 /*
  Dialog for the CodeCogs Equation Editor plugin for CKEditor 4.
 
- Embeds the shared EqEditor UI every adapter in eqneditor-v5-plugins uses. The dialog is
+ Embeds the shared EqEditor UI every adapter in fxPlugins uses. The dialog is
  maths-view only: no LaTeX markup and no rendered-equation preview are visible until the author
  asks for them (the LaTeX and Inline toggles, bottom-left of the footer, alongside "Insert as").
  Double-clicking an existing equation reopens this dialog with its LaTeX decoded back out of the
