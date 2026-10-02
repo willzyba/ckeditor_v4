@@ -131,6 +131,38 @@
 			style.textContent = css;
 			root.appendChild( style );
 		}
+		// The dialog's width and height (`width`, `height`), before any scaling: the box takes the width,
+		// and the editing area whatever height makes the whole dialog the height asked for - measured,
+		// since everything else in it (toolbar rows, the bottom bar) varies with the design. Hosts that
+		// size their dialogs themselves (TinyMCE 4, CKEditor 4) are given both when they open it instead.
+		var sizedBox = root.closest( '.tox-dialog, .mce-window, .cke_dialog, .ck-balloon-panel, .cc-eqneditor-modal, .tc-drop-down' ) || root;
+		if ( !sizedBox.matches( '.mce-window, .cke_dialog' ) ) {
+			if ( Number( design.width ) > 0 ) sizedBox.style.setProperty( 'width', Number( design.width ) + 'px', 'important' );
+			var area = root.querySelector( '.CCMathViewHost' );
+			if ( Number( design.height ) > 0 && area ) {
+				// Measured, then measured again as the dialog settles - the toolbar fits itself to its row
+				// after the dialog first lays out, and the fonts arrive - correcting by the difference each time.
+				// A box with a height of its own (Froala's and Tiptap's modals) sizes to its contents instead.
+				sizedBox.style.setProperty( 'height', 'auto', 'important' );
+				var sizing = document.createElement( 'style' );
+				root.appendChild( sizing );
+				var h = 0;
+				var fit = function () {
+					var shown = root.querySelector( '.CCLatexInput' ) && getComputedStyle( area ).display === 'none'
+						? root.querySelector( '.CCLatexInput' ) : area;
+					// Scale may already be applied (see below), and on-screen sizes include it.
+					var applied = parseFloat( sizedBox.style.zoom ) || parseFloat( ( sizedBox.style.transform.match( /scale\(([\d.]+)\)/ ) || [] )[ 1 ] ) || 1;
+					var now = h || shown.getBoundingClientRect().height / applied;
+					h = Math.max( 120, Math.round( now + Number( design.height ) - sizedBox.getBoundingClientRect().height / applied ) );
+					// Never taller than the whole dialog asked for: a host that caps its dialog (and scrolls the
+					// rest) would otherwise be chased upwards on every pass.
+					h = Math.min( h, Number( design.height ) );
+					sizing.textContent = '#' + root.id + ' { height: auto !important; } #' + root.id + ' .CCMathViewHost, #' + root.id + ' .CCLatexInput { height: ' + h + 'px !important; min-height: ' + h + 'px !important; }';
+				};
+				fit();
+				[ 150, 500, 1200 ].forEach( function ( t ) { setTimeout( fit, t ); } );
+			}
+		}
 		// The whole dialog, box and contents together - see `dialogSize` in the README. Zoomed where
 		// the host lays the dialog out (it grows in place); scaled where the host positions it itself
 		// (CKEditor, TinyMCE 4, a TiddlyWiki drop-down), so that placement still holds.
@@ -276,6 +308,11 @@
 			} );
 
 			applyDesign( document.getElementById( ids.root ), design, latexToggle, document.getElementById( ids.insertMode ) );
+			// The editor fills the dialog's contents, 30px short of its minHeight - see minHeight below.
+			if ( Number( design.height ) > 0 ) {
+				document.getElementById( ids.root ).style.setProperty( 'height',
+					( Math.max( 300, Number( design.height ) - 90 ) - 30 ) + 'px', 'important' );
+			}
 		}
 
 		function panelHtml() {
@@ -314,14 +351,16 @@
 
 		return {
 			title: editor.lang.eqneditor.title,
-			minWidth: 850,
+			// The design's `width` is the whole dialog's - its frame and padding (22px) included.
+			minWidth: Number( design.width ) > 0 ? Math.max( 400, Number( design.width ) - 22 ) : 850,
 			// CKEditor 4's dialog engine gives the contents area roughly minHeight + 22px
 			// regardless of what the content actually needs, then never shrinks it back down -
 			// so this has to match .CCEqnEditor's own 440px (see injectStyleOverridesOnce) plus
 			// its bottom bar, not the dialog's old, taller pre-redesign content. Measured against
 			// the live dialog rather than guessed: a bigger number here reproduces as dead grey
 			// space between the maths view and the Cancel/OK row, not a taller maths view.
-			minHeight: 470,
+			// The design's `height` is the whole dialog's - title bar and buttons (about 90px) included.
+			minHeight: Number( design.height ) > 0 ? Math.max( 300, Number( design.height ) - 90 ) : 470,
 			resizable: CKEDITOR.DIALOG_RESIZE_NONE,
 			contents: [
 				{
