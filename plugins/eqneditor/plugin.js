@@ -122,6 +122,7 @@
 				var mathEl = element.getAscendant( 'math', true ) || ( element.is( 'math' ) ? element : null );
 				if ( mathEl && mathEl.getAttribute( 'title' ) ) {
 					editor._eqneditorPendingLatex = mathEl.getAttribute( 'title' ).trim();
+					editor._eqneditorPendingElement = mathEl.$;   // for the size it was inserted at
 					evt.data.dialog = commandName;
 				}
 			}, null, null, 100 );

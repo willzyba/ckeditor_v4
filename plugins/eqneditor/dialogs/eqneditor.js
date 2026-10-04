@@ -102,6 +102,38 @@
 	// author. The toolbar's rows and scale go to Toolbar.link() itself; everything else is applied
 	// here, once the editor is mounted - CSS scoped to this editor's root, then the starting state of
 	// the LaTeX toggle and the "Insert as" menu.
+	// The dialog's size when the design does not set one: about 700 by 450 pixels.
+	var DEFAULT_WIDTH = 700, DEFAULT_HEIGHT = 450;
+	function designWidth( design ) { return Number( design && design.width ) > 0 ? Number( design.width ) : DEFAULT_WIDTH; }
+	function designHeight( design ) { return Number( design && design.height ) > 0 ? Number( design.height ) : DEFAULT_HEIGHT; }
+	// An equation's own size, against a normal one (Output.setEquationSize()): normal is whatever
+	// the site's .fxtex rule makes it, and this scales one equation on top. Chosen in the dialog's
+	// Size control when the design shows it (design.sizeControl); otherwise an equation being edited
+	// keeps the size it had.
+	var SIZES = [ 50, 75, 100, 125, 150, 200, 300 ];
+	function sizeOptions() {
+		return SIZES.map( function ( pct ) {
+			return '<option value="' + pct + '"' + ( pct === 100 ? ' selected' : '' ) + '>' + pct + '%</option>';
+		} ).join( '' );
+	}
+	function showSize( select, scale ) {
+		if ( !select ) return;
+		var pct = String( Math.round( scale * 100 ) );
+		if ( !select.querySelector( 'option[value="' + pct + '"]' ) ) {
+			var option = document.createElement( 'option' );
+			option.value = pct;
+			option.textContent = pct + '%';
+			select.appendChild( option );
+		}
+		select.value = pct;
+	}
+	// The size an equation on the page was inserted at - read once the API has loaded, which may
+	// be after the double-click that asked for it. 1 without one.
+	function sizeOf( el ) {
+		return el && window.EqEditor && EqEditor.Output && typeof EqEditor.Output.equationSizeOf === 'function'
+			? EqEditor.Output.equationSizeOf( el ) : 1;
+	}
+
 	var designCount = 0;
 	function applyDesign( root, design, latexToggle, insertSelect ) {
 		if ( !root || !design ) return;
@@ -131,14 +163,14 @@
 		var sizedBox = root.closest( '.tox-dialog, .mce-window, .cke_dialog, .ck-balloon-panel, .cc-eqneditor-modal, .tc-drop-down' ) || root;
 		// CKEditor 4 lays its dialog out in tables, and a table cell is never narrower than its content -
 		// the toolbar's whole row - so the editor takes the dialog's content width (`minWidth` below) itself.
-		if ( sizedBox.matches( '.cke_dialog' ) && Number( design.width ) > 0 ) {
-			root.style.setProperty( 'width', Math.max( 400, Number( design.width ) - 22 ) + 'px', 'important' );
+		if ( sizedBox.matches( '.cke_dialog' ) ) {
+			root.style.setProperty( 'width', Math.max( 400, designWidth( design ) - 22 ) + 'px', 'important' );
 			root.style.setProperty( 'box-sizing', 'border-box', 'important' );
 		}
 		if ( !sizedBox.matches( '.mce-window, .cke_dialog' ) ) {
-			if ( Number( design.width ) > 0 ) sizedBox.style.setProperty( 'width', Number( design.width ) + 'px', 'important' );
+			sizedBox.style.setProperty( 'width', designWidth( design ) + 'px', 'important' );
 			var area = root.querySelector( '.CCMathViewHost' );
-			if ( Number( design.height ) > 0 && area ) {
+			if ( area ) {
 				// Measured, then measured again as the dialog settles - the toolbar fits itself to its row
 				// after the dialog first lays out, and the fonts arrive - correcting by the difference each time.
 				// A box with a height of its own (Froala's and Tiptap's modals) sizes to its contents instead.
@@ -152,10 +184,10 @@
 					// Scale may already be applied (see below), and on-screen sizes include it.
 					var applied = parseFloat( sizedBox.style.zoom ) || parseFloat( ( sizedBox.style.transform.match( /scale\(([\d.]+)\)/ ) || [] )[ 1 ] ) || 1;
 					var now = h || shown.getBoundingClientRect().height / applied;
-					h = Math.max( 120, Math.round( now + Number( design.height ) - sizedBox.getBoundingClientRect().height / applied ) );
+					h = Math.max( 120, Math.round( now + designHeight( design ) - sizedBox.getBoundingClientRect().height / applied ) );
 					// Never taller than the whole dialog asked for: a host that caps its dialog (and scrolls the
 					// rest) would otherwise be chased upwards on every pass.
-					h = Math.min( h, Number( design.height ) );
+					h = Math.min( h, designHeight( design ) );
 					sizing.textContent = '#' + root.id + ' { height: auto !important; } #' + root.id + ' .CCMathViewHost, #' + root.id + ' .CCLatexInput { height: ' + h + 'px !important; min-height: ' + h + 'px !important; }';
 				};
 				fit();
@@ -254,7 +286,8 @@
 			output: 'cc-eqn-ck4-output-' + n,
 			toggleInline: 'cc-eqn-ck4-toggle-inline-' + n,
 			toggleLatex: 'cc-eqn-ck4-toggle-latex-' + n,
-			insertMode: 'cc-eqn-ck4-insert-mode-' + n
+			insertMode: 'cc-eqn-ck4-insert-mode-' + n,
+			size: 'cc-eqn-ck4-size-' + n
 		};
 
 		var renderUrl = editor.config.eqneditor_render_url || 'https://latex.codecogs.com';
@@ -265,6 +298,7 @@
 				: 'https://' + ( editor.config.eqneditor_server || 'fxtex.codecogs.com' ) ) + '/fxeditor.css' );
 
 		var eqOutput = null, eqTextArea = null, eqMathView = null, eqToolbar = null;
+		var startSize = 1;   // the size of the equation being edited, when there is no Size control
 		var mounted = false;
 
 		function applyLatexVisible( visible ) {
@@ -313,9 +347,9 @@
 
 			applyDesign( document.getElementById( ids.root ), design, latexToggle, document.getElementById( ids.insertMode ) );
 			// The editor fills the dialog's contents, 30px short of its minHeight - see minHeight below.
-			if ( Number( design.height ) > 0 ) {
+			{
 				document.getElementById( ids.root ).style.setProperty( 'height',
-					( Math.max( 300, Number( design.height ) - 90 ) - 30 ) + 'px', 'important' );
+					( Math.max( 300, designHeight( design ) - 90 ) - 30 ) + 'px', 'important' );
 			}
 		}
 
@@ -344,6 +378,9 @@
 							'<span class="cc-switch-label">LaTeX markup</span>' +
 						'</label>' +
 						'<div class="cc-eqn-bar-right">' +
+							( design.sizeControl
+							    ? '<select class="cc-eqn-select" id="' + ids.size + '" title="This equation\'s size, against a normal one">' + sizeOptions() + '</select>'
+							    : '' ) +
 							'<select class="cc-eqn-select" id="' + ids.insertMode + '" title="How to insert the equation">' +
 								'<option value="mathml" selected>Insert MathML</option>' +
 								'<option value="svg">Insert SVG</option>' +
@@ -356,7 +393,7 @@
 		return {
 			title: editor.lang.eqneditor.title,
 			// The design's `width` is the whole dialog's - its frame and padding (22px) included.
-			minWidth: Number( design.width ) > 0 ? Math.max( 400, Number( design.width ) - 22 ) : 850,
+			minWidth: Math.max( 400, designWidth( design ) - 22 ),
 			// CKEditor 4's dialog engine gives the contents area roughly minHeight + 22px
 			// regardless of what the content actually needs, then never shrinks it back down -
 			// so this has to match .CCEqnEditor's own 440px (see injectStyleOverridesOnce) plus
@@ -364,7 +401,7 @@
 			// the live dialog rather than guessed: a bigger number here reproduces as dead grey
 			// space between the maths view and the Cancel/OK row, not a taller maths view.
 			// The design's `height` is the whole dialog's - title bar and buttons (about 90px) included.
-			minHeight: Number( design.height ) > 0 ? Math.max( 300, Number( design.height ) - 90 ) : 470,
+			minHeight: Math.max( 300, designHeight( design ) - 90 ),
 			resizable: CKEDITOR.DIALOG_RESIZE_NONE,
 			contents: [
 				{
@@ -380,18 +417,24 @@
 			// markup is a worse failure than a short, silent wait.
 			onShow: function () {
 				var initialLatex = '';
+				var initialElement = null;   // the equation being edited, whose size the dialog starts from
 
 				// Set by plugin.js's doubleclick handler when a MathML equation (rather than
 				// an <img> one) was double-clicked - see the comment there for why this can't
 				// come from editor.getSelection() the way the <img> case below does.
 				if ( editor._eqneditorPendingLatex ) {
 					initialLatex = editor._eqneditorPendingLatex;
+					initialElement = editor._eqneditorPendingElement || null;
 					editor._eqneditorPendingLatex = null;
+					editor._eqneditorPendingElement = null;
 				} else {
 					var image = editor.getSelection().getStartElement().getAscendant( 'img', true );
 					if ( image ) {
 						var match = image.getAttribute( 'src' ).match( /(gif|svg|png)\.image\?(.*)/ );
-						if ( match ) initialLatex = decodeEquation( match[ 2 ] );
+						if ( match ) {
+							initialLatex = decodeEquation( match[ 2 ] );
+							initialElement = image.$;
+						}
 					}
 				}
 
@@ -404,6 +447,8 @@
 					ensureInit( licence ).then( function () {
 						injectStyleOverridesOnce( cssUrl.slice( 0, cssUrl.lastIndexOf( '/' ) + 1 ) + 'prototypes/latinmodern-math.otf' );
 						mount();
+						startSize = sizeOf( initialElement );
+						showSize( document.getElementById( ids.size ), startSize );
 						eqTextArea.clear();
 						if ( initialLatex ) eqTextArea.insert( initialLatex, initialLatex.length );
 						eqTextArea.notifyOutputs();
@@ -420,9 +465,14 @@
 				if ( !latex ) return;
 
 				var mode = document.getElementById( ids.insertMode ).value;
+				if ( eqOutput.setEquationSize ) {
+					var sizeSelect = document.getElementById( ids.size );
+					eqOutput.setEquationSize( sizeSelect ? Number( sizeSelect.value ) / 100 : startSize );
+				}
 
 				if ( mode === 'svg' ) {
 					var eqn = editor.document.createElement( 'img' );
+					eqn.setAttribute( 'class', 'fxtex' );
 					eqn.setAttribute( 'alt', latex );
 					eqn.setAttribute( 'src', eqOutput.exportAs( 'url' ) );
 					// referrerpolicy explicitly, rather than leaving it to the page's own
@@ -431,6 +481,13 @@
 					// browsers' defaults) would otherwise send none at all.
 					eqn.setAttribute( 'referrerpolicy', 'origin' );
 					editor.insertElement( eqn );
+					// Its size in em once the API has read it (Output.imageSize()), so it follows the
+					// text it is in - set after it goes in, so as not to lose the selection.
+					if ( typeof eqOutput.imageSize === 'function' ) {
+						eqOutput.imageSize().then( function ( size ) {
+							if ( size ) eqn.setStyles( { width: size.width, height: size.height } );
+						} );
+					}
 				} else {
 					// createFromHtml rather than a string passed to insertHtml(): CKEditor 4's
 					// Advanced Content Filter runs on insertHtml() and does not know <math>
