@@ -7,7 +7,8 @@
  Double-clicking an existing equation reopens this dialog with its LaTeX decoded back out of the
  image's own src, or read straight off a MathML equation's own title attribute.
 
- Copyright CodeCogs 2006-2026
+ Copyright (c) 2026 CodeCogs, Zyba Ltd. Released under the MIT licence - see LICENSE in this
+ plugin's folder.
 */
 ( function () {
 	'use strict';

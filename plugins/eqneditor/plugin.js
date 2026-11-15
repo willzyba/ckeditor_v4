@@ -9,7 +9,8 @@
  config.eqneditor_server (host only) or config.eqneditor_script_url/eqneditor_css_url (full
  URL - needed for a plain-HTTP local dev server, since the host-only default assumes https).
 
- Copyright CodeCogs 2006-2026
+ Copyright (c) 2026 CodeCogs, Zyba Ltd. Released under the MIT licence - see LICENSE in this
+ plugin's folder.
 */
 ( function () {
 	'use strict';

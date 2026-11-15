@@ -63,7 +63,7 @@ Then load the plugin, add `EqnEditor` to your toolbar, and give it your licence 
 CKEDITOR.replace( 'editor1', {
     extraPlugins: 'eqneditor',
     toolbar: [ [ 'Bold', 'Italic' ], [ 'EqnEditor' ], [ 'Undo', 'Redo' ] ],
-    eqneditor_licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // from the licence manager
+    eqneditor_licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // from fxeditor.codecogs.com/purchase
     eqneditor_design: { colour: '#0f7a4d' }           // optional
 } );
 ```
@@ -92,13 +92,7 @@ licence key. The documentation site fills these in when it publishes the demo.
 Equations are rendered by fxTeX Pro, which needs a licence key for your domain. Without one,
 equations show the reason they cannot render in place of the maths.
 
-- Get a key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase): paid
-  plans, and a free trial.
-- Teachers and students can have a free individual licence:
-  [fxeditor.codecogs.com/academic](https://fxeditor.codecogs.com/academic).
-- Keys are managed in the licence manager at
-  [fxeditor.codecogs.com/login](https://fxeditor.codecogs.com/login), where you add your domains
-  and copy your key.
+Get your licence key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase).
 
 The key goes in the `eqneditor_licence` configuration option.
 
@@ -118,5 +112,7 @@ The key goes in the `eqneditor_licence` configuration option.
 - **CKEditor 4** - Copyright CKSource - Frederico Knabben. Licensed, at your choice, under the
   GPL 2 or later, the LGPL 2.1 or later, or the MPL 1.1 or later. See [LICENSE.md](LICENSE.md),
   which also lists the third-party libraries CKEditor includes.
-- **The fxEditor plugin** (`plugins/eqneditor/`) and `example.html` - Copyright CodeCogs.
+- **The fxEditor plugin** (`plugins/eqneditor/`) and `example.html` - Copyright (c) 2026 CodeCogs, Zyba
+  Ltd. Released under the MIT licence - see
+  [`plugins/eqneditor/LICENSE`](https://github.com/willzyba/ckeditor_v4/blob/main/plugins/eqneditor/LICENSE).
 - fxEditor and fxTeX Pro need their own licence key, as above.
