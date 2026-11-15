@@ -86,7 +86,7 @@ content, add:
 ### Trying the example
 
 [`example.html`](example.html) is the page used for the live demo. Before opening it, replace its
-two placeholders: `{{EQN_SERVER}}` with `fxtex.codecogs.com` and `{{FXTEXPRO_KEY}}` with your
+two placeholders: `{{EQN_SERVER}}` with `https://fxtex.codecogs.com` and `{{FXTEXPRO_KEY}}` with your
 licence key. The documentation site fills these in when it publishes the demo.
 
 ## Licence key
@@ -104,7 +104,7 @@ The key goes in the `eqneditor_licence` configuration option.
 |---|---|---|
 | `eqneditor_licence` | | Your fxEditor licence key. Required. |
 | `eqneditor_design` | | The editor's look: dialog width, height and scale, toolbar panels and size, colour, equation and markup sizes, undo/redo, how the dialog opens. Build one in [Customise and download](https://fxplugins.codecogs.com/docs/ckeditor4.html#customise). |
-| `eqneditor_server` | `'fxtex.codecogs.com'` | Host the equation editor's own code is loaded from. A bare host means https; a full origin is used as it is. |
+| `eqneditor_server` | `'https://fxtex.codecogs.com'` | Where the equation editor's own code is loaded from, as a URL (a bare host is taken as https). |
 | `eqneditor_render_url` | `'https://fxtex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
 | `eqneditor_script_url` | from `eqneditor_server` | Full URL of the equation editor bundle. |
 | `eqneditor_css_url` | from `eqneditor_server` | Full URL of the equation editor stylesheet. |

@@ -15,7 +15,7 @@
 ( function () {
 	'use strict';
 
-	var DEFAULT_HOST = 'fxtex.codecogs.com';
+	var DEFAULT_HOST = 'https://fxtex.codecogs.com';
 
 	// One script/CSS load per URL no matter how many editor instances CKEDITOR.replace() is
 	// called for on the page - CKEDITOR.scriptLoader.load() already dedupes network requests

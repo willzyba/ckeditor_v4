@@ -742,9 +742,10 @@
 		var renderUrl = editor.config.eqneditor_render_url || 'https://fxtex.codecogs.com';
 		var licence = editor.config.eqneditor_licence || '';
 		var design = editor.config.eqneditor_design || {};
+		// A bare host means https; a full URL (the default) is used as it is.
+		var cssServer = editor.config.eqneditor_server || 'https://fxtex.codecogs.com';
 		var cssUrl = editor.config.eqneditor_css_url ||
-			( ( /^https?:\/\//.test( editor.config.eqneditor_server || '' ) ? editor.config.eqneditor_server.replace( /\/+$/, '' )
-				: 'https://' + ( editor.config.eqneditor_server || 'fxtex.codecogs.com' ) ) + '/fxeditor.css' );
+			( ( /^https?:\/\//.test( cssServer ) ? cssServer.replace( /\/+$/, '' ) : 'https://' + cssServer ) + '/fxeditor.css' );
 
 		var eqOutput = null, eqTextArea = null, eqMathView = null, eqToolbar = null;
 		var startSize = 1;   // the size of the equation being edited, when there is no Size control
