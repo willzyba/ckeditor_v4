@@ -70,7 +70,7 @@ CKEDITOR.replace( 'editor1', {
 } );
 ```
 
-The equation editor itself is fetched from `fxtex.codecogs.com` the first time it is needed, so
+The equation editor itself is fetched from `https://fxtex.codecogs.com` the first time it is needed, so
 you always get the current editor.
 
 To use it: click where the equation should go, click **fx**, build the equation, choose how it
