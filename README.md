@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/willzyba/ckeditor_v4/main/screenshots/icon.png" alt="" width="96" align="right">
+
 # fxEditor for CKEditor 4
 
 The fxEditor plugin for [CKEditor 4](https://ckeditor.com/ckeditor-4/) adds an **fx** button to
@@ -103,7 +105,7 @@ The key goes in the `eqneditor_licence` configuration option.
 | `eqneditor_licence` | | Your fxEditor licence key. Required. |
 | `eqneditor_design` | | The editor's look: dialog width, height and scale, toolbar panels and size, colour, equation and markup sizes, undo/redo, how the dialog opens. Build one in [Customise and download](https://fxplugins.codecogs.com/docs/ckeditor4.html#customise). |
 | `eqneditor_server` | `'fxtex.codecogs.com'` | Host the equation editor's own code is loaded from. A bare host means https; a full origin is used as it is. |
-| `eqneditor_render_url` | `'https://latex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
+| `eqneditor_render_url` | `'https://fxtex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
 | `eqneditor_script_url` | from `eqneditor_server` | Full URL of the equation editor bundle. |
 | `eqneditor_css_url` | from `eqneditor_server` | Full URL of the equation editor stylesheet. |
 

@@ -739,7 +739,7 @@
 			size: 'cc-eqn-ck4-size-' + n
 		};
 
-		var renderUrl = editor.config.eqneditor_render_url || 'https://latex.codecogs.com';
+		var renderUrl = editor.config.eqneditor_render_url || 'https://fxtex.codecogs.com';
 		var licence = editor.config.eqneditor_licence || '';
 		var design = editor.config.eqneditor_design || {};
 		var cssUrl = editor.config.eqneditor_css_url ||
@@ -928,7 +928,7 @@
 					eqn.setAttribute( 'alt', latex );
 					eqn.setAttribute( 'src', outputCode( eqOutput, 'url' ) );
 					// referrerpolicy explicitly, rather than leaving it to the page's own
-					// Referrer-Policy: latex.codecogs.com identifies the calling site by
+					// Referrer-Policy: the rendering service identifies the calling site by
 					// referer, and a page with a stricter policy (or none at all, on some
 					// browsers' defaults) would otherwise send none at all.
 					eqn.setAttribute( 'referrerpolicy', 'origin' );
