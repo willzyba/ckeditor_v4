@@ -1,39 +1,122 @@
-CKEditor 4
-==========
+# fxEditor for CKEditor 4
 
-Copyright (c) 2003-2014, CKSource - Frederico Knabben. All rights reserved.  
-http://ckeditor.com - See LICENSE.md for license information.
+The fxEditor plugin for [CKEditor 4](https://ckeditor.com/ckeditor-4/) adds an **fx** button to
+the editor's toolbar. It opens fxEditor, CodeCogs' equation editor, in a dialog: a toolbar of
+symbols and structures, a maths view you type into directly, and a LaTeX view that stays in step
+with it. The equation is inserted at the cursor as MathML (the default) or as an SVG image,
+chosen in the dialog. Double-click an inserted equation to edit it again (or, in a CKEditor
+build that includes the context menu, right-click it and choose **Edit Equation**).
 
-CKEditor is a text editor to be used inside web pages. It's not a replacement
-for desktop text editors like Word or OpenOffice, but a component to be used as
-part of web applications and websites.
+It is for sites still running CKEditor 4. On a newer version, use the
+[CKEditor 5 plugin](https://github.com/willzyba/ckeditor_v5).
 
-## Documentation
+## What is in this repository
 
-The full editor documentation is available online at the following address:
-http://docs.ckeditor.com
+**CKEditor 4 itself is the work of [CKSource](https://ckeditor.com), under its own licence.**
+This repository is the complete CKEditor 4.5.4 download, bundled as CKSource distributes it, with
+the fxEditor plugin added. CKEditor's own readme is [CKEDITOR-README.md](CKEDITOR-README.md), and
+its licence is [LICENSE.md](LICENSE.md).
 
-## Installation
+Only these parts are CodeCogs' work:
 
-Installing CKEditor is an easy task. Just follow these simple steps:
+- [`plugins/eqneditor/`](plugins/eqneditor/) - the fxEditor plugin
+- [`example.html`](example.html) - the example page
+- the line in [`config.js`](config.js) that loads the plugin (`config.extraPlugins = 'eqneditor';`)
+- this README and the `screenshots/` folder
 
- 1. **Download** the latest version from the CKEditor website:
-    http://ckeditor.com. You should have already completed this step, but be
-    sure you have the very latest version.
- 2. **Extract** (decompress) the downloaded file into the root of your website.
+## Screenshots
 
-**Note:** CKEditor is by default installed in the `ckeditor` folder. You can
-place the files in whichever you want though.
+![CKEditor 4 with the fx button on its toolbar](https://raw.githubusercontent.com/willzyba/ckeditor_v4/main/screenshots/toolbar.png)
 
-## Checking Your Installation
+*The fx button on CKEditor 4's toolbar.*
 
-The editor comes with a few sample pages that can be used to verify that
-installation proceeded properly. Take a look at the `samples` directory.
+![The fxEditor dialog open in CKEditor 4](https://raw.githubusercontent.com/willzyba/ckeditor_v4/main/screenshots/dialog.png)
 
-To test your installation, just call the following page at your website:
+*fxEditor open in a CKEditor 4 dialog.*
 
-	http://<your site>/<CKEditor installation path>/samples/index.html
+## Links
 
-For example:
+- [Documentation and live demo](https://fxplugins.codecogs.com/docs/ckeditor4.html)
+- [Customise and download](https://fxplugins.codecogs.com/docs/ckeditor4.html#customise) - design
+  the editor's look and download the result
+- [All fxEditor plugins](https://fxplugins.codecogs.com)
+- [fxEditor](https://fxeditor.codecogs.com)
 
-	http://www.example.com/ckeditor/samples/index.html
+## Installing from git
+
+```bash
+git clone https://github.com/willzyba/ckeditor_v4.git
+```
+
+**If you already have CKEditor 4**, copy the plugin's folder, `plugins/eqneditor`, into your
+CKEditor's own `plugins` folder. The plugin needs CKEditor's `dialog` plugin, which standard
+CKEditor 4 builds include.
+
+**If you do not**, the clone is itself a working CKEditor 4.5.4 (CKSource's "basic" build) with
+the plugin in place: serve the folder from your site and load its `ckeditor.js`. Its
+[`config.js`](config.js) already loads the plugin, and removes the Undo and Redo buttons, among
+others, through `config.removeButtons`.
+
+Then load the plugin, add `EqnEditor` to your toolbar, and give it your licence key:
+
+```js
+CKEDITOR.replace( 'editor1', {
+    extraPlugins: 'eqneditor',
+    toolbar: [ [ 'Bold', 'Italic' ], [ 'EqnEditor' ], [ 'Undo', 'Redo' ] ],
+    eqneditor_licence: 'YOUR-FXEDITOR-LICENCE-KEY',   // from the licence manager
+    eqneditor_design: { colour: '#0f7a4d' }           // optional
+} );
+```
+
+The equation editor itself is fetched from `fxtex.codecogs.com` the first time it is needed, so
+you always get the current editor.
+
+To use it: click where the equation should go, click **fx**, build the equation, choose how it
+is inserted from **Insert as**, then **OK**.
+
+MathML needs a stylesheet on the page that displays it. On the page that finally shows your
+content, add:
+
+```html
+<link rel="stylesheet" href="https://fxtex.codecogs.com/fxtex.css">
+```
+
+### Trying the example
+
+[`example.html`](example.html) is the page used for the live demo. Before opening it, replace its
+two placeholders: `{{EQN_SERVER}}` with `fxtex.codecogs.com` and `{{FXTEXPRO_KEY}}` with your
+licence key. The documentation site fills these in when it publishes the demo.
+
+## Licence key
+
+Equations are rendered by fxTeX Pro, which needs a licence key for your domain. Without one,
+equations show the reason they cannot render in place of the maths.
+
+- Get a key from [fxeditor.codecogs.com/purchase](https://fxeditor.codecogs.com/purchase): paid
+  plans, and a free trial.
+- Teachers and students can have a free individual licence:
+  [fxeditor.codecogs.com/academic](https://fxeditor.codecogs.com/academic).
+- Keys are managed in the licence manager at
+  [fxeditor.codecogs.com/login](https://fxeditor.codecogs.com/login), where you add your domains
+  and copy your key.
+
+The key goes in the `eqneditor_licence` configuration option.
+
+### Options
+
+| Option | Default | Meaning |
+|---|---|---|
+| `eqneditor_licence` | | Your fxEditor licence key. Required. |
+| `eqneditor_design` | | The editor's look: dialog width, height and scale, toolbar panels and size, colour, equation and markup sizes, undo/redo, how the dialog opens. Build one in [Customise and download](https://fxplugins.codecogs.com/docs/ckeditor4.html#customise). |
+| `eqneditor_server` | `'fxtex.codecogs.com'` | Host the equation editor's own code is loaded from. A bare host means https; a full origin is used as it is. |
+| `eqneditor_render_url` | `'https://latex.codecogs.com'` | The rendering service for equations inserted as images. Point it at a self-hosted fxTeX Server to keep equations inside your network. |
+| `eqneditor_script_url` | from `eqneditor_server` | Full URL of the equation editor bundle. |
+| `eqneditor_css_url` | from `eqneditor_server` | Full URL of the equation editor stylesheet. |
+
+## Licence
+
+- **CKEditor 4** - Copyright CKSource - Frederico Knabben. Licensed, at your choice, under the
+  GPL 2 or later, the LGPL 2.1 or later, or the MPL 1.1 or later. See [LICENSE.md](LICENSE.md),
+  which also lists the third-party libraries CKEditor includes.
+- **The fxEditor plugin** (`plugins/eqneditor/`) and `example.html` - Copyright CodeCogs.
+- fxEditor and fxTeX Pro need their own licence key, as above.
