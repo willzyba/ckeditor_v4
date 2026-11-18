@@ -57,6 +57,17 @@
 		return !!src && /(gif|svg|png)\.image\?/.test( src );
 	}
 
+	function loadFxtexStyleOnce( url ) {
+		if ( document.getElementById( 'fxtex-style' ) || document.querySelector( 'link[href="' + url + '"]' ) ) {
+			return;
+		}
+		var link = document.createElement( 'link' );
+		link.id = 'fxtex-style';
+		link.rel = 'stylesheet';
+		link.href = url;
+		document.head.appendChild( link );
+	}
+
 	CKEDITOR.plugins.add( 'eqneditor', {
 		requires: [ 'dialog' ],
 		lang: 'de,en,es,fr,it',
@@ -69,8 +80,21 @@
 			var scriptUrl = editor.config.eqneditor_script_url || ( origin + '/fxeditor.api.min.js' );
 			var cssUrl = editor.config.eqneditor_css_url || ( origin + '/fxeditor.css' );
 
+			// fxtex.css styles inserted MathML. The dialog is on the outer page, where fxTeX Pro
+			// (loaded by EqEditor.init() when the dialog first opens) adds those rules itself as
+			// <style id="fxtex-style">, so that page is not given a copy. The content area is an
+			// iframe that stylesheet never reaches, so it goes in there. An inline editor's
+			// content is part of the page and needs it before the dialog has ever been opened:
+			// there it is added under fxTeX Pro's id, which stops fxTeX Pro adding a second copy.
+			var mathmlCssUrl = editor.config.eqneditor_mathml_css_url || ( origin + '/fxtex.css' );
+
 			loadScriptOnce( scriptUrl ).catch( function ( err ) { console.error( err ); } );
 			loadCssOnce( cssUrl );
+			if ( editor.elementMode === CKEDITOR.ELEMENT_MODE_INLINE ) {
+				loadFxtexStyleOnce( mathmlCssUrl );
+			} else {
+				editor.addContentsCss( mathmlCssUrl );
+			}
 
 			var lang = editor.lang.eqneditor;
 			var commandName = 'eqneditorDialog';

@@ -76,12 +76,16 @@ you always get the current editor.
 To use it: click where the equation should go, click **fx**, build the equation, choose how it
 is inserted from **Insert as**, then **OK**.
 
-MathML needs a stylesheet on the page that displays it. On the page that finally shows your
+MathML needs a stylesheet on the page that displays it. The plugin loads it into CKEditor's editing
+area for you (`eqneditor_mathml_css_url` changes where from); on the page that finally shows your
 content, add:
 
 ```html
-<link rel="stylesheet" href="https://fxtex.codecogs.com/fxtex.css">
+<link id="fxtex-style" rel="stylesheet" href="https://fxtex.codecogs.com/fxtex.css">
 ```
+
+The `id` is the one fxTeX Pro looks for: on a page that also runs the editor, fxTeX Pro sees
+the rules are already there and does not add a second copy.
 
 ### Trying the example
 
