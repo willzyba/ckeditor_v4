@@ -216,7 +216,8 @@
 				box.style.setProperty( 'max-width', 'calc(96vw / ' + size + ')', 'important' );   // still no wider than the window
 			}
 		}
-		if ( insertSelect && design.insertAs && insertSelect.querySelector( 'option[value="' + design.insertAs + '"]' ) ) {
+		// The design's choice, unless the author has made their own (addEditorControls()).
+		if ( insertSelect && design.insertAs && !insertSelect.hasAttribute( 'data-cc-remembered' ) && insertSelect.querySelector( 'option[value="' + design.insertAs + '"]' ) ) {
 			insertSelect.value = design.insertAs;
 		}
 		if ( latexToggle && design.latex && !latexToggle.checked && !latexToggle.disabled ) {
@@ -238,6 +239,25 @@
 		if ( typeof output.exportAs === 'function' ) return output.exportAs( kind );
 		if ( kind === 'mathml' ) return output.setFormat( 'mathml' ).setWrapper( 'html' ).getCode();
 		return output.setFormat( 'svg' ).getEquationURL();
+	}
+
+	// Where "Insert as" starts each time the dialog opens - this one is built once and reused, so it
+	// would otherwise keep whatever the last open left: the form of the equation being edited, else the
+	// author's last choice (addEditorControls()), else the design's, else the dialog's own default.
+	function startInsertAs( select, format, design ) {
+		if ( !select ) return;
+		var prefs = {};
+		try { prefs = JSON.parse( localStorage.getItem( EDITOR_PREFS_KEY ) ) || {}; } catch ( e ) {}
+		var choices = [ format, prefs.insertAs, design && design.insertAs ];
+		for ( var i = 0; i < choices.length; i++ ) {
+			if ( choices[ i ] && select.querySelector( 'option[value="' + choices[ i ] + '"]' ) ) {
+				select.value = choices[ i ];
+				return;
+			}
+		}
+		for ( var j = 0; j < select.options.length; j++ ) {
+			if ( select.options[ j ].defaultSelected ) select.value = select.options[ j ].value;
+		}
 	}
 
 	// The editor's own controls, as the Google Docs sidebar has them: the toolbar's size (50-120%) at the
@@ -325,6 +345,16 @@
 				latex.dispatchEvent( new Event( 'change', { bubbles: true } ) );
 			}
 			latex.addEventListener( 'change', function () { prefs.latex = latex.checked; save(); } );
+		}
+
+		// Insert as: the author's last choice, over the design's.
+		var insertAs = parts.insertSelect;
+		if ( insertAs ) {
+			if ( prefs.insertAs && insertAs.querySelector( 'option[value="' + prefs.insertAs + '"]' ) ) {
+				insertAs.value = prefs.insertAs;
+				insertAs.setAttribute( 'data-cc-remembered', '' );
+			}
+			insertAs.addEventListener( 'change', function () { prefs.insertAs = insertAs.value; save(); } );
 		}
 
 		stackPanes( root, prefs, save );
@@ -749,6 +779,7 @@
 
 		var eqOutput = null, eqTextArea = null, eqMathView = null, eqToolbar = null;
 		var startSize = 1;   // the size of the equation being edited, when there is no Size control
+		var editing = null;  // the equation being edited, which OK replaces
 		var mounted = false;
 
 		function applyLatexVisible( visible ) {
@@ -796,7 +827,8 @@
 			} );
 
 			addEditorControls( document.getElementById( ids.root ), design, { textArea: eqTextArea, mathView: eqMathView, output: eqOutput,
-				latexToggle: document.getElementById( ids.toggleLatex ), inlineToggle: document.getElementById( ids.toggleInline ) } );
+				latexToggle: document.getElementById( ids.toggleLatex ), inlineToggle: document.getElementById( ids.toggleInline ),
+				insertSelect: document.getElementById( ids.insertMode ) } );
 			applyDesign( document.getElementById( ids.root ), design, latexToggle, document.getElementById( ids.insertMode ) );
 			// The editor fills the dialog's contents, 30px short of its minHeight - see minHeight below.
 			{
@@ -870,6 +902,7 @@
 			onShow: function () {
 				var initialLatex = '';
 				var initialElement = null;   // the equation being edited, whose size the dialog starts from
+				var initialFormat = '';      // and what it was inserted as, which the dialog starts with
 
 				// Set by plugin.js's doubleclick handler when a MathML equation (rather than
 				// an <img> one) was double-clicked - see the comment there for why this can't
@@ -877,6 +910,7 @@
 				if ( editor._eqneditorPendingLatex ) {
 					initialLatex = editor._eqneditorPendingLatex;
 					initialElement = editor._eqneditorPendingElement || null;
+					initialFormat = 'mathml';
 					editor._eqneditorPendingLatex = null;
 					editor._eqneditorPendingElement = null;
 				} else {
@@ -886,9 +920,12 @@
 						if ( match ) {
 							initialLatex = decodeEquation( match[ 2 ] );
 							initialElement = image.$;
+							initialFormat = 'svg';
 						}
 					}
 				}
+
+				editing = initialElement;
 
 				function whenReady() {
 					if ( typeof window.EqEditor === 'undefined' ) {
@@ -899,6 +936,7 @@
 					ensureInit( licence ).then( function () {
 						injectStyleOverridesOnce( cssUrl.slice( 0, cssUrl.lastIndexOf( '/' ) + 1 ) + 'prototypes/latinmodern-math.otf' );
 						mount();
+						startInsertAs( document.getElementById( ids.insertMode ), initialFormat, design );
 						startSize = sizeOf( initialElement );
 						showSize( document.getElementById( ids.size ), startSize );
 						eqTextArea.clear();
@@ -913,6 +951,25 @@
 
 			onOk: function () {
 				if ( !eqTextArea ) return;
+
+				// In place of the equation being edited, all of it (for MathML, the wrapper with its spoken
+				// text too), or else at the caret. Double-clicking a <math> leaves the caret inside it, not the
+				// equation selected as an image is, so an edited MathML equation went in beside or inside the
+				// old one, which stayed.
+				function place( el ) {
+					var old = editing;
+					if ( old && old.nodeName.toLowerCase() === 'math' && old.parentNode &&
+							old.parentNode.nodeName.toLowerCase() === 'span' && /(^|\s)cc-math(\s|$)/.test( old.parentNode.className ) ) {
+						old = old.parentNode;
+					}
+					if ( old && editor.editable().$.contains( old ) ) {
+						editor.fire( 'saveSnapshot' );
+						el.replace( new CKEDITOR.dom.element( old ) );
+						editor.fire( 'saveSnapshot' );
+					} else {
+						editor.insertElement( el );
+					}
+				}
 
 				var latex = eqTextArea.getTextArea().textContent.trim();
 				if ( !latex ) return;
@@ -933,7 +990,7 @@
 					// referer, and a page with a stricter policy (or none at all, on some
 					// browsers' defaults) would otherwise send none at all.
 					eqn.setAttribute( 'referrerpolicy', 'origin' );
-					editor.insertElement( eqn );
+					place( eqn );
 					// Its size in em once the API has read it (Output.imageSize()), so it follows the
 					// text it is in - set after it goes in, so as not to lose the selection.
 					if ( typeof eqOutput.imageSize === 'function' ) {
@@ -948,7 +1005,7 @@
 					// insertElement() with an already-built element bypasses ACF instead,
 					// exactly like the existing <img> insert above always has).
 					var mathEl = CKEDITOR.dom.element.createFromHtml( outputCode( eqOutput, 'mathml' ), editor.document );
-					editor.insertElement( mathEl );
+					place( mathEl );
 				}
 
 				eqTextArea.pushToHistory();

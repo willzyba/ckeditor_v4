@@ -68,12 +68,42 @@
 		document.head.appendChild( link );
 	}
 
+	// Presentation MathML, plus the three non-"m" elements the converter can emit.
+	var MATHML_ELEMENTS = [
+		'math', 'semantics', 'annotation', 'annotation-xml',
+		'mrow', 'mi', 'mo', 'mn', 'ms', 'mtext', 'mspace', 'mglyph',
+		'mfrac', 'msqrt', 'mroot', 'mstyle', 'merror', 'mpadded', 'mphantom', 'menclose',
+		'msub', 'msup', 'msubsup', 'munder', 'mover', 'munderover',
+		'mmultiscripts', 'mprescripts', 'none',
+		'mtable', 'mtr', 'mtd', 'mlabeledtr', 'maction'
+	];
+
+	// CKEditor's element table has no MathML, so saved MathML was taken apart when the content was
+	// loaded - only its text was left, and the equation could not be opened again. Each MathML
+	// element may hold text and any other; <math> may stand wherever inline content can.
+	( function () {
+		var dtd = CKEDITOR.dtd, children = { '#': 1 };
+		MATHML_ELEMENTS.forEach( function ( name ) { children[ name ] = 1; } );
+		MATHML_ELEMENTS.forEach( function ( name ) { dtd[ name ] = children; } );
+		for ( var name in dtd ) {
+			if ( name.charAt( 0 ) !== '$' && dtd[ name ] && dtd[ name ].span && !dtd[ name ].math ) dtd[ name ].math = 1;
+		}
+		dtd.$inline.math = 1;
+	}() );
+
 	CKEDITOR.plugins.add( 'eqneditor', {
 		requires: [ 'dialog' ],
 		lang: 'de,en,es,fr,it',
 		icons: 'eqneditor',
 
 		init: function ( editor ) {
+			// The same for the content filter, which otherwise removes MathML, its spoken-text wrapper and
+			// the equation image's class and referrerpolicy when the content is loaded.
+			if ( editor.filter && editor.filter.allow ) {
+				editor.filter.allow( MATHML_ELEMENTS.join( ' ' ) + '[*](*){*}', 'eqneditor' );
+				editor.filter.allow( 'span[role,aria-label,aria-hidden,lang](cc-math,fxtex); img[referrerpolicy](fxtex)', 'eqneditor' );
+			}
+
 			var host = editor.config.eqneditor_server || DEFAULT_HOST;
 			// A bare host means https; a full origin (e.g. http://localhost:8010 for local development) is used as it is.
 			var origin = /^https?:\/\//.test( host ) ? host.replace( /\/+$/, '' ) : 'https://' + host;
