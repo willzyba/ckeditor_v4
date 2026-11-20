@@ -241,6 +241,48 @@
 		return output.setFormat( 'svg' ).getEquationURL();
 	}
 
+	// "Insert as LaTeX": the equation as text fxTeX Pro typesets where the page is shown - $...$
+	// inline, $$...$$ on its own line - the delimiters fxTeX Pro looks for by default.
+	function texOf( latex, inline ) {
+		return inline ? '$' + latex + '$' : '$$' + latex + '$$';
+	}
+
+	// A DOM range over the LaTeX equation `tex` (from texAt()) if it is still in `body`,
+	// unchanged, where it was found - else null.
+	function texRange( tex, body ) {
+		if ( !tex || !body.contains( tex.start.node ) || !body.contains( tex.end.node ) ) return null;
+		var range = body.ownerDocument.createRange();
+		try {
+			range.setStart( tex.start.node, tex.start.offset );
+			range.setEnd( tex.end.node, tex.end.offset );
+		} catch ( e ) { return null; }
+		return range.toString() === tex.text ? range : null;
+	}
+
+	// An image equation's LaTeX, read back from its rendering URL, starts with the \inline the editor
+	// put there for an inline equation. Taken off, as the editor adds it again (left on, it showed in
+	// the editor and each edit added another), and given back as whether the equation is inline.
+	function splitInline( latex ) {
+		var found = /^\s*\\inline\b\s*/.exec( latex );
+		return { latex: found ? latex.slice( found[ 0 ].length ) : latex, inline: !!found };
+	}
+
+	// The Inline switch as the dialog opens: an edited LaTeX equation's own form ($ inline, $$
+	// not), otherwise what the author last chose. Set without a change event, so editing one
+	// equation does not change the remembered choice; `apply` shows the change in the dialog.
+	function startInline( toggle, inline, apply ) {
+		if ( !toggle || toggle.disabled ) return;
+		if ( typeof inline !== 'boolean' ) {
+			var prefs = {};
+			try { prefs = JSON.parse( localStorage.getItem( EDITOR_PREFS_KEY ) ) || {}; } catch ( e ) {}
+			inline = typeof prefs.inline === 'boolean' ? prefs.inline : toggle.defaultChecked;
+		}
+		if ( toggle.checked !== inline ) {
+			toggle.checked = inline;
+			apply( inline );
+		}
+	}
+
 	// Where "Insert as" starts each time the dialog opens - this one is built once and reused, so it
 	// would otherwise keep whatever the last open left: the form of the equation being edited, else the
 	// author's last choice (addEditorControls()), else the design's, else the dialog's own default.
@@ -739,12 +781,14 @@
 	// on to fxTeX Pro - skip it and they keep the placeholder converter for their whole
 	// lifetime, even once fxeditor.api.min.js itself has loaded. Called once per page; an
 	// empty licence is the normal, expected state until a real one is configured.
+	// fxTeX Pro's optional packages are off unless named here: without them \ce, \chemfig,
+	// \dv and the picture environment were unknown commands, shown as their letters.
 	var initPromise = null;
 
 	function ensureInit( licence ) {
 		if ( initPromise ) return initPromise;
 		initPromise = ( typeof EqEditor.init === 'function' )
-			? EqEditor.init( { licence: licence || '' } ).catch( function ( err ) {
+			? EqEditor.init( { licence: licence || '', packages: [ 'mhchem', 'chemfig', 'physics', 'picture' ] } ).catch( function ( err ) {
 				window.console && console.warn( 'fxTeX Pro: ' + ( err && err.message || err ) );
 			} )
 			: Promise.resolve();
@@ -868,6 +912,7 @@
 							'<select class="cc-eqn-select" id="' + ids.insertMode + '" title="How to insert the equation">' +
 								'<option value="mathml" selected>Insert MathML</option>' +
 								'<option value="svg">Insert SVG</option>' +
+								'<option value="latex">Insert LaTeX</option>' +
 							'</select>' +
 						'</div>' +
 					'</div>' +
@@ -903,6 +948,7 @@
 				var initialLatex = '';
 				var initialElement = null;   // the equation being edited, whose size the dialog starts from
 				var initialFormat = '';      // and what it was inserted as, which the dialog starts with
+				var initialInline;           // and whether it is inline ($...$, for LaTeX), which the Inline switch starts at
 
 				// Set by plugin.js's doubleclick handler when a MathML equation (rather than
 				// an <img> one) was double-clicked - see the comment there for why this can't
@@ -911,14 +957,25 @@
 					initialLatex = editor._eqneditorPendingLatex;
 					initialElement = editor._eqneditorPendingElement || null;
 					initialFormat = 'mathml';
+					initialInline = editor._eqneditorPendingInline;
 					editor._eqneditorPendingLatex = null;
 					editor._eqneditorPendingElement = null;
+					editor._eqneditorPendingInline = undefined;
+				} else if ( editor._eqneditorPendingTex ) {
+					// LaTeX in the text (plugin.js's doubleclick handler): where it is, which OK replaces.
+					initialElement = editor._eqneditorPendingTex;
+					initialLatex = initialElement.latex;
+					initialFormat = 'latex';
+					initialInline = !initialElement.display;
+					editor._eqneditorPendingTex = null;
 				} else {
 					var image = editor.getSelection().getStartElement().getAscendant( 'img', true );
 					if ( image ) {
 						var match = image.getAttribute( 'src' ).match( /(gif|svg|png)\.image\?(.*)/ );
 						if ( match ) {
-							initialLatex = decodeEquation( match[ 2 ] );
+							var eq = splitInline( decodeEquation( match[ 2 ] ) );
+							initialLatex = eq.latex;
+							initialInline = eq.inline;
 							initialElement = image.$;
 							initialFormat = 'svg';
 						}
@@ -937,7 +994,8 @@
 						injectStyleOverridesOnce( cssUrl.slice( 0, cssUrl.lastIndexOf( '/' ) + 1 ) + 'prototypes/latinmodern-math.otf' );
 						mount();
 						startInsertAs( document.getElementById( ids.insertMode ), initialFormat, design );
-						startSize = sizeOf( initialElement );
+						startInline( document.getElementById( ids.toggleInline ), initialInline, applyInline );
+						startSize = sizeOf( initialElement && initialElement.nodeType ? initialElement : null );
 						showSize( document.getElementById( ids.size ), startSize );
 						eqTextArea.clear();
 						if ( initialLatex ) eqTextArea.insert( initialLatex, initialLatex.length );
@@ -956,8 +1014,21 @@
 				// text too), or else at the caret. Double-clicking a <math> leaves the caret inside it, not the
 				// equation selected as an image is, so an edited MathML equation went in beside or inside the
 				// old one, which stayed.
+				// A LaTeX equation (a text node) goes in at the caret as text.
 				function place( el ) {
 					var old = editing;
+					if ( old && old.tex ) {
+						// LaTeX in the text: the $...$ or $$...$$, delimiters and all.
+						var range = texRange( old, editor.editable().$ );
+						if ( range ) {
+							editor.fire( 'saveSnapshot' );
+							range.deleteContents();
+							range.insertNode( el.$ );
+							editor.fire( 'saveSnapshot' );
+							return;
+						}
+						old = null;
+					}
 					if ( old && old.nodeName.toLowerCase() === 'math' && old.parentNode &&
 							old.parentNode.nodeName.toLowerCase() === 'span' && /(^|\s)cc-math(\s|$)/.test( old.parentNode.className ) ) {
 						old = old.parentNode;
@@ -966,6 +1037,8 @@
 						editor.fire( 'saveSnapshot' );
 						el.replace( new CKEDITOR.dom.element( old ) );
 						editor.fire( 'saveSnapshot' );
+					} else if ( el.type === CKEDITOR.NODE_TEXT ) {
+						editor.insertText( el.getText() );
 					} else {
 						editor.insertElement( el );
 					}
@@ -980,7 +1053,9 @@
 					( eqOutput.setScale || eqOutput.setEquationSize ).call( eqOutput, sizeSelect ? Number( sizeSelect.value ) / 100 : startSize );
 				}
 
-				if ( mode === 'svg' ) {
+				if ( mode === 'latex' ) {
+					place( new CKEDITOR.dom.text( texOf( latex, document.getElementById( ids.toggleInline ).checked ), editor.document ) );
+				} else if ( mode === 'svg' ) {
 					var eqn = editor.document.createElement( 'img' );
 					eqn.setAttribute( 'class', 'fxtex' );
 					eqn.setAttribute( 'alt', latex );
@@ -1005,6 +1080,9 @@
 					// insertElement() with an already-built element bypasses ACF instead,
 					// exactly like the existing <img> insert above always has).
 					var mathEl = CKEDITOR.dom.element.createFromHtml( outputCode( eqOutput, 'mathml' ), editor.document );
+					// One object in the editor, as content loaded with MathML is made (plugin.js), so it
+					// can be deleted; the mark is not saved.
+					mathEl.setAttribute( 'contenteditable', 'false' );
 					place( mathEl );
 				}
 
