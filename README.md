@@ -8,6 +8,7 @@ symbols and structures, a maths view you type into directly, and a LaTeX view th
 with it. The equation is inserted at the cursor as MathML (the default), as an SVG image, or as
 LaTeX text (`$...$` inline, `$$...$$` on its own line) for [fxTeX](https://fxeditor.codecogs.com/docs/0-fxtex.php) to typeset on the page that shows it, chosen in the dialog. Double-click an inserted equation to edit it again (or, in a CKEditor
 build that includes the context menu, right-click it and choose **Edit Equation**).
+LaTeX in the content shows as the maths it is while it is edited, and is saved as the LaTeX, character for character (`latexAsMaths: false` in the design turns this off).
 
 It is for sites still running CKEditor 4. On a newer version, use the
 [CKEditor 5 plugin](https://github.com/willzyba/ckeditor_v5).

@@ -120,6 +120,165 @@
 			start: point( found.start, false ), end: point( found.end, true ) };
 	}
 
+	// A piece of text as runs of plain text and LaTeX equations, read as texAround() reads them:
+	// [{ text }, { text, tex: { latex, display } }, ...] - each run's text exactly as it is in the piece,
+	// delimiters and all, so joining the runs gives the piece back unchanged.
+	function texPieces( text ) {
+		var pieces = [], i = 0, from = 0;
+		while ( i < text.length ) {
+			var c = text.charAt( i );
+			if ( c === '\\' ) { i += 2; continue; }
+			if ( c !== '$' ) { i++; continue; }
+			var display = text.charAt( i + 1 ) === '$', size = display ? 2 : 1, j = i + size;
+			while ( j < text.length && !( text.charAt( j ) === '$' && ( !display || text.charAt( j + 1 ) === '$' ) ) ) {
+				j += text.charAt( j ) === '\\' ? 2 : 1;
+			}
+			if ( j >= text.length ) break;
+			var end = j + size, latex = text.slice( i + size, j ).trim();
+			if ( latex ) {
+				if ( i > from ) pieces.push( { text: text.slice( from, i ) } );
+				pieces.push( { text: text.slice( i, end ), tex: { latex: latex, display: display } } );
+				from = end;
+			}
+			i = end;
+		}
+		if ( from < text.length ) pieces.push( { text: text.slice( from ) } );
+		return pieces;
+	}
+
+	// The LaTeX equation in `source` (all of it, delimiters and all, as texPieces() gives it), or null.
+	function texOfSource( source ) {
+		var pieces = texPieces( source || '' );
+		return pieces.length === 1 && pieces[ 0 ].tex ? pieces[ 0 ].tex : null;
+	}
+
+	// LaTeX in the text - $...$ and $$...$$, as fxTeX reads them on the page that shows the content -
+	// shown as the maths it is while it is edited (config.eqneditor_design.latexAsMaths, on unless set
+	// false). What is saved is the LaTeX, exactly as it was: the stored content is the LaTeX, not MathML.
+	//
+	// As content is loaded (the data filter), each equation in the text becomes a locked span holding its
+	// text: <span class="cc-tex" contenteditable="false"><span class="cc-tex-src">$x$</span></span>. Its
+	// maths is drawn in beside the text, which is then hidden; snapshots for undo leave the maths out. As
+	// content is saved (the HTML filter), each span is its text again. Not in code, or anything already
+	// maths. Double-click one to edit it.
+	var TEX_SKIP = { code: 1, pre: 1, script: 1, style: 1, textarea: 1, math: 1, svg: 1 };
+	var TEX_CSS = '.cc-tex { cursor: default; } .cc-tex-display { display: block; text-align: center; margin: 0.5em 0; }' +
+		' .cc-tex-math + .cc-tex-src { display: none; }';
+
+	// The HTML of a span holding LaTeX (`html`: its text, already escaped as HTML).
+	function texSpanHtml( html, display ) {
+		return '<span class="cc-tex' + ( display ? ' cc-tex-display' : '' ) + '" contenteditable="false">' +
+			'<span class="cc-tex-src">' + html + '</span></span>';
+	}
+
+	// One promise for fxTeX Pro, shared with the dialog (dialogs/eqneditor.js).
+	var texInitPromise = null;
+	CKEDITOR.eqneditorInit = function ( licence ) {
+		if ( !texInitPromise ) {
+			texInitPromise = ( typeof EqEditor !== 'undefined' && typeof EqEditor.init === 'function' )
+				? EqEditor.init( { licence: licence || '', packages: [ 'mhchem', 'chemfig', 'physics', 'picture' ] } ).catch( function ( err ) {
+					window.console && console.warn( 'fxTeX Pro: ' + ( err && err.message || err ) );
+				} )
+				: Promise.resolve();
+		}
+		return texInitPromise;
+	};
+
+	function texAsMaths( editor, apiReady, licence ) {
+		function insideSkipped( node ) {
+			for ( var p = node.parent; p && p.type === CKEDITOR.NODE_ELEMENT; p = p.parent ) {
+				if ( TEX_SKIP[ p.name ] ) return true;
+				var cls = p.attributes && p.attributes[ 'class' ];
+				if ( cls && /(^|\s)cc-tex(-src)?(\s|$)/.test( cls ) ) return true;
+			}
+			return false;
+		}
+
+		// In: LaTeX in each element's text. The text here is as it is in the HTML, entities and all.
+		editor.dataProcessor.dataFilter.addRules( {
+			elements: {
+				$: function ( element ) {
+					if ( TEX_SKIP[ element.name ] ) return;
+					for ( var i = element.children.length - 1; i >= 0; i-- ) {
+						var child = element.children[ i ];
+						if ( child.type !== CKEDITOR.NODE_TEXT || child.value.indexOf( '$' ) === -1 || insideSkipped( child ) ) continue;
+						var pieces = texPieces( child.value );
+						if ( !pieces.some( function ( piece ) { return piece.tex; } ) ) continue;
+						var html = pieces.map( function ( piece ) {
+							return piece.tex ? texSpanHtml( piece.text, piece.tex.display ) : piece.text;
+						} ).join( '' );
+						var fragment = CKEDITOR.htmlParser.fragment.fromHtml( html );
+						var nodes = fragment.children.slice();
+						for ( var k = 0; k < nodes.length; k++ ) nodes[ k ].insertBefore( child );
+						child.remove();
+					}
+				}
+			}
+		}, { applyToAll: true, priority: 20 } );
+
+		// Out: each span is its text again.
+		editor.dataProcessor.htmlFilter.addRules( {
+			elements: {
+				span: function ( element ) {
+					if ( !/(^|\s)cc-tex(\s|$)/.test( element.attributes[ 'class' ] || '' ) ) return;
+					var source = null;
+					element.forEach( function ( node ) {
+						if ( !source && node.type === CKEDITOR.NODE_ELEMENT && /(^|\s)cc-tex-src(\s|$)/.test( node.attributes[ 'class' ] || '' ) ) source = node;
+					}, CKEDITOR.NODE_ELEMENT );
+					var text = '';
+					if ( source ) source.forEach( function ( node ) { text += node.value; }, CKEDITOR.NODE_TEXT );
+					return new CKEDITOR.htmlParser.text( text );
+				}
+			}
+		}, { applyToAll: true, priority: 1 } );
+
+		// Undo snapshots without the drawn maths, which is drawn again after an undo.
+		editor.on( 'getSnapshot', function ( evt ) {
+			if ( typeof evt.data === 'string' && evt.data.indexOf( 'cc-tex-math' ) !== -1 ) {
+				evt.data = evt.data.replace( /<span class="cc-tex-math"[^>]*>[\s\S]*?<\/math><\/span>/g, '' );
+			}
+		}, null, null, 100 );
+
+		function draw() {
+			var editable = editor.editable();
+			if ( !editable ) return;
+			var spans = Array.prototype.filter.call( editable.$.querySelectorAll( 'span.cc-tex' ), function ( span ) {
+				return !span.querySelector( '.cc-tex-math' );
+			} );
+			if ( !spans.length ) return;
+			apiReady.then( function () { return CKEDITOR.eqneditorInit( licence ); } ).then( function () {
+				spans.forEach( function ( span ) {
+					if ( !editable.$.contains( span ) || span.querySelector( '.cc-tex-math' ) ) return;
+					var src = span.querySelector( '.cc-tex-src' );
+					var tex = texOfSource( src ? src.textContent : '' );
+					var mathml = '';
+					try { mathml = tex ? EqEditor.Output.latexToMathML( tex.latex, false, !tex.display ) : ''; } catch ( e ) { mathml = ''; }
+					// Without fxTeX Pro (no licence), its error: the LaTeX stays as it is.
+					if ( !mathml || mathml.indexOf( '<merror' ) !== -1 ) return;
+					var math = span.ownerDocument.createElement( 'span' );
+					math.className = 'cc-tex-math';
+					math.innerHTML = mathml;
+					span.insertBefore( math, span.firstChild );
+				} );
+			} );
+		}
+		editor.on( 'contentDom', function () {
+			var doc = editor.document && editor.document.$;
+			if ( doc && !doc.getElementById( 'cc-tex-style' ) ) {
+				var style = doc.createElement( 'style' );
+				style.id = 'cc-tex-style';
+				style.textContent = TEX_CSS;
+				( doc.head || doc.body ).appendChild( style );
+			}
+			draw();
+		} );
+		editor.on( 'dataReady', draw );
+		editor.on( 'afterInsertHtml', draw );
+		editor.on( 'afterUndo', draw );
+		editor.on( 'afterRedo', draw );
+		return draw;
+	}
+
 	var MATHML_ELEMENTS = [
 		'math', 'semantics', 'annotation', 'annotation-xml',
 		'mrow', 'mi', 'mo', 'mn', 'ms', 'mtext', 'mspace', 'mglyph',
@@ -175,6 +334,7 @@
 				} ).join( ',' ) + '](*){*}', 'eqneditor' );
 				editor.filter.allow( 'span[role,aria-label,aria-hidden,lang](cc-math,fxtex); img[referrerpolicy](fxtex)', 'eqneditor' );
 				editor.filter.allow( 'span[contenteditable](cc-math)', 'eqneditor' );
+				editor.filter.allow( 'span[contenteditable](cc-tex,cc-tex-display,cc-tex-src,cc-tex-math)', 'eqneditor' );
 			}
 
 			// Each MathML equation is one object while it is in the editor. The browser cannot
@@ -210,7 +370,11 @@
 			// there it is added under fxTeX Pro's id, which stops fxTeX Pro adding a second copy.
 			var mathmlCssUrl = editor.config.eqneditor_mathml_css_url || ( origin + '/fxtex.css' );
 
-			loadScriptOnce( scriptUrl ).catch( function ( err ) { console.error( err ); } );
+			var apiReady = loadScriptOnce( scriptUrl );
+			apiReady.catch( function ( err ) { console.error( err ); } );
+			if ( ( editor.config.eqneditor_design || {} ).latexAsMaths !== false ) {
+				editor._eqneditorDrawTex = texAsMaths( editor, apiReady, editor.config.eqneditor_licence || '' );
+			}
 			loadCssOnce( cssUrl );
 			if ( editor.elementMode === CKEDITOR.ELEMENT_MODE_INLINE ) {
 				loadFxtexStyleOnce( mathmlCssUrl );
@@ -266,6 +430,16 @@
 				// selection, so the dialog's onShow (dialogs/eqneditor.js) cannot recover it
 				// from editor.getSelection() the way it does for an image - stashed here on
 				// the editor instance instead, which onShow reads and clears.
+				// LaTeX shown as maths: its own text says what it is. Stashed like MathML, below.
+				var texEl = element.getAscendant( function ( el ) { return el.hasClass && el.hasClass( 'cc-tex' ); }, true );
+				var texSrc = texEl && texEl.$.querySelector( '.cc-tex-src' );
+				var texFound = texSrc && texOfSource( texSrc.textContent );
+				if ( texFound ) {
+					editor._eqneditorPendingTexElement = { element: texEl.$, latex: texFound.latex, display: texFound.display };
+					evt.data.dialog = commandName;
+					return;
+				}
+
 				var mathEl = element.getAscendant( 'math', true ) || ( element.is( 'math' ) ? element : null );
 				if ( mathEl && mathEl.getAttribute( 'title' ) ) {
 					editor._eqneditorPendingLatex = mathEl.getAttribute( 'title' ).trim();

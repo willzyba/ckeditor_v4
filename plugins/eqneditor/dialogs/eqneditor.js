@@ -286,6 +286,16 @@
 	// Where "Insert as" starts each time the dialog opens - this one is built once and reused, so it
 	// would otherwise keep whatever the last open left: the form of the equation being edited, else the
 	// author's last choice (addEditorControls()), else the design's, else the dialog's own default.
+	// The HTML of a span holding LaTeX, as plugin.js's content filter makes it (`html`: escaped text).
+	function texSpanHtml( html, display ) {
+		return '<span class="cc-tex' + ( display ? ' cc-tex-display' : '' ) + '" contenteditable="false">' +
+			'<span class="cc-tex-src">' + html + '</span></span>';
+	}
+
+	function escapeHtml( s ) {
+		return String( s ).replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' ).replace( /"/g, '&quot;' );
+	}
+
 	function startInsertAs( select, format, design ) {
 		if ( !select ) return;
 		var prefs = {};
@@ -786,6 +796,8 @@
 	var initPromise = null;
 
 	function ensureInit( licence ) {
+		// The plugin's own (plugin.js), when it has one, so fxTeX Pro is opened once.
+		if ( CKEDITOR.eqneditorInit ) return CKEDITOR.eqneditorInit( licence );
 		if ( initPromise ) return initPromise;
 		initPromise = ( typeof EqEditor.init === 'function' )
 			? EqEditor.init( { licence: licence || '', packages: [ 'mhchem', 'chemfig', 'physics', 'picture' ] } ).catch( function ( err ) {
@@ -961,6 +973,13 @@
 					editor._eqneditorPendingLatex = null;
 					editor._eqneditorPendingElement = null;
 					editor._eqneditorPendingInline = undefined;
+				} else if ( editor._eqneditorPendingTexElement ) {
+					// LaTeX shown as maths (plugin.js's doubleclick handler): the span, which OK replaces.
+					initialElement = editor._eqneditorPendingTexElement.element;
+					initialLatex = editor._eqneditorPendingTexElement.latex;
+					initialFormat = 'latex';
+					initialInline = !editor._eqneditorPendingTexElement.display;
+					editor._eqneditorPendingTexElement = null;
 				} else if ( editor._eqneditorPendingTex ) {
 					// LaTeX in the text (plugin.js's doubleclick handler): where it is, which OK replaces.
 					initialElement = editor._eqneditorPendingTex;
@@ -1054,7 +1073,16 @@
 				}
 
 				if ( mode === 'latex' ) {
-					place( new CKEDITOR.dom.text( texOf( latex, document.getElementById( ids.toggleInline ).checked ), editor.document ) );
+					var texInline = document.getElementById( ids.toggleInline ).checked;
+					var texText = texOf( latex, texInline );
+					if ( editor._eqneditorDrawTex ) {
+						// Shown as maths: the span the content filter would have made of it.
+						var texEl = CKEDITOR.dom.element.createFromHtml( texSpanHtml( escapeHtml( texText ), !texInline ), editor.document );
+						place( texEl );
+						editor._eqneditorDrawTex();
+					} else {
+						place( new CKEDITOR.dom.text( texText, editor.document ) );
+					}
 				} else if ( mode === 'svg' ) {
 					var eqn = editor.document.createElement( 'img' );
 					eqn.setAttribute( 'class', 'fxtex' );
